@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -266,5 +266,34 @@ public class HRScript : MonoBehaviour {
             Fill(pos[3], true);
             yield return new WaitForSeconds(2);
         }
+    }
+#pragma warning disable 414
+    private readonly string TwitchHelpMessage = @"!{0} <xyzw> [Moves the cell selector one space in the given direction. Chain without spaces.] | !{0} <tf> [Toggles the respective on/off and flagged/unflagged states of the selected cell. Can be chained with movement commands.]";
+#pragma warning restore 414
+
+    private IEnumerator ProcessTwitchCommand(string command)
+    {
+        command = command.ToLowerInvariant();
+        if (command.All(x => "xyzwtf".Contains(x.ToString())))
+        {
+            for(int i = 0; i < command.Length; i++)
+            {
+                if (command[i] == 't' && locked[(((((pos[3] * 4) + pos[2]) * 4) + pos[1]) * 4) + pos[0]])
+                {
+                    yield return "sendtochaterror!f Attempt to toggle the on/off state of a flagged cell at command" + (i + 1).ToString() + ".";
+                    yield break;
+                }
+                int d = Mathf.Min("xyzwtf".IndexOf(command[i].ToString()), 4);
+                yield return null;
+                buttons[d].OnInteract();
+                if (d > 3)
+                {
+                    yield return command[i] == 'f' ? new WaitForSeconds(0.52f) : null;
+                    buttons[4].OnInteractEnded();
+                }
+            }
+        }
+        else
+            yield return "sendtochaterror!f " + command.First(x => !"xyzwtf".Contains(x.ToString())).ToString().Replace(" ", "Space") + " is not a valid command.";
     }
 }
