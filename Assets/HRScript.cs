@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using UnityEngine;
 
 public class HRScript : MonoBehaviour {
@@ -267,33 +268,63 @@ public class HRScript : MonoBehaviour {
             yield return new WaitForSeconds(2);
         }
     }
+    // Twitch Plays
+    private float _tpSpeed;
 #pragma warning disable 414
-    private readonly string TwitchHelpMessage = @"!{0} <xyzw> [Moves the cell selector one space in the given direction. Chain without spaces.] | !{0} <tf> [Toggles the respective on/off and flagged/unflagged states of the selected cell. Can be chained with movement commands.]";
+    private readonly string TwitchHelpMessage = @"!{0} <xyzw> [Moves the cell selector one space in the given direction. Chain without spaces.] | !{0} <tf> [Toggles the respective on/off and flagged/unflagged states of the selected cell. Can be chained with movement command | !{0} setspeed 0.2 [Set a press speed between 0 and 1 seconds.]";
 #pragma warning restore 414
 
     private IEnumerator ProcessTwitchCommand(string command)
     {
-        command = command.ToLowerInvariant();
-        if (command.All(x => "xyzwtf".Contains(x.ToString())))
+        var parameters = command.ToLowerInvariant().Split(' ');
+        var m = Regex.Match(parameters[0], @"^setspeed$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (m.Success)
         {
-            for(int i = 0; i < command.Length; i++)
+            if (parameters.Length != 2)
+                yield break;
+
+            float tempSpeed;
+            if (!float.TryParse(parameters[1], out tempSpeed) || tempSpeed <= 0 || tempSpeed >= 1)
             {
-                if (command[i] == 't' && locked[(((((pos[3] * 4) + pos[2]) * 4) + pos[1]) * 4) + pos[0]])
+                yield return "sendtochaterror " + parameters[1] + " is not a valid speed! Press speed must be between 0 and 1 seconds.";
+                yield break;
+            }
+
+            yield return null;
+            _tpSpeed = tempSpeed;
+            yield return "sendtochat Latin Hypercube's press speed has been set to " + parameters[1];
+            yield break;
+        }
+
+        if (parameters[0].All(x => "xyzwtf".Contains(x.ToString())))
+        {
+            for (int i = 0; i < parameters[0].Length; i++)
+            {
+                if (parameters[0][i] == 't' && locked[(((((pos[3] * 4) + pos[2]) * 4) + pos[1]) * 4) + pos[0]])
                 {
                     yield return "sendtochaterror!f Attempt to toggle the on/off state of a flagged cell at command" + (i + 1).ToString() + ".";
                     yield break;
                 }
-                int d = Mathf.Min("xyzwtf".IndexOf(command[i].ToString()), 4);
+
+                if (command.Length > 1 && i != 0)
+                {
+                    yield return new WaitForSeconds(_tpSpeed);
+                }
+
+                int d = Mathf.Min("xyzwtf".IndexOf(parameters[0][i].ToString()), 4);
                 yield return null;
                 buttons[d].OnInteract();
                 if (d > 3)
                 {
-                    yield return command[i] == 'f' ? new WaitForSeconds(0.52f) : null;
+                    yield return parameters[0][i] == 'f' ? new WaitForSeconds(0.52f) : null;
                     buttons[4].OnInteractEnded();
                 }
             }
         }
+
         else
-            yield return "sendtochaterror!f " + command.First(x => !"xyzwtf".Contains(x.ToString())).ToString().Replace(" ", "Space") + " is not a valid command.";
+        {
+            yield return "sendtochaterror!f " + parameters[0].First(x => !"xyzwtf".Contains(x.ToString())).ToString().Replace(" ", "Space") + " is not a valid command.";
+        }
     }
 }
